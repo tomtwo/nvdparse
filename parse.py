@@ -20,7 +20,9 @@ for file in filenames:
 logger.info("Reading in %s.." % (', '.join(filenames)))
 
 plugins = [
-  ("adobe", "flash_player")
+  ("adobe", "flash_player"),
+  ("microsoft", "silverlight"),
+  ("apple", "quicktime")
 ]
 
 vulnerabilities = []
@@ -33,13 +35,10 @@ for file in filenames:
   vulnerabilities.extend(vs)
 
 d = Database("datatmp.sqlite")
-plugin_vulnerabilities = []
 for v in vulnerabilities:
   logger.info("Found %s" % v.id)
 
   if v.contains_plugin:
-    plugin_vulnerabilities.append(v)
-
     logger.info("Inserting vuln %s into database.." % v.id)
     d.vulnerability_insert(v.cve_year, v.cve_id, v.summary, v.get_product_ids())
 
