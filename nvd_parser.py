@@ -1,7 +1,7 @@
 from lxml import etree
 
 class Vulnerability:
-  def __init__(self, entry, nsmap, plugins):
+  def __init__(self, entry, nsmap, product_filter):
     self.id = entry.xpath('vuln:cve-id/text()', namespaces=nsmap)[0] # Pick first from list
     
     cve = self.id.split("-")
@@ -11,16 +11,16 @@ class Vulnerability:
     self.date_published = entry.xpath('vuln:published-datetime/text()', namespaces=nsmap)
     self.summary = entry.xpath('vuln:summary/text()', namespaces=nsmap)
     self.products = []
-    self.contains_plugin = False
+    self.contains_filtered_product = False
 
     products = entry.xpath('vuln:vulnerable-software-list/vuln:product', namespaces=nsmap)
     for p in products:
       pr = Product.fromString(p.text)
-      self.contains_plugin |= pr.isPlugin(plugins)
+      self.contains_filtered_product |= pr.existsIn(product_filter)
       self.products.append(pr)
 
   def __str__(self):
-    return "Vuln %s>>> %s" % (self.id, "contains plugin" if self.contains_plugin else "no plugin")
+    return "Vuln %s>>> %s" % (self.id, "contains queried product" if self.contains_filtered_product else "")
 
   def print_products(self):
     for p in self.products:
@@ -50,13 +50,16 @@ class Product:
   def isFlash(self):
     return self.vendor == "adobe" and self.product == "flash_player"
 
-  def isPlugin(self, plugins):
-    for plugin in plugins:
-      if self.vendor == plugin[0] and self.product == plugin[1]:
+  def existsIn(self, product_list):
+    for product in product_list:
+      if self.vendor == product[0] and self.product == product[1]:
         return True
 
-    # Not a plugin!
+    # Not in product list!
     return False
+
+  def isPlugin(self, plugins):
+    return self.existsIn(plugins)
 
   @classmethod
   def genUID(_class):
@@ -106,9 +109,9 @@ class Product:
 
 # Parses a single NVD XML file
 class NVDFileParser:
-  def __init__(self, filename, plugins):
+  def __init__(self, filename, product_filter=[]):
     self.tree = etree.parse(filename)
-    self.plugins = plugins
+    self.product_filter = product_filter
     self.nsmap = {}
     # Getting all the namespaces
     self.nsmap = {}
@@ -120,7 +123,13 @@ class NVDFileParser:
 
   def get_vulnerabilities(self):
     vulnerabilities = []
+    apply_filter = len(self.product_filter) > 0
     for entry_node in self.tree.xpath('//def:entry', namespaces=self.nsmap):
-      vulnerability = Vulnerability(entry_node, self.nsmap, self.plugins)
+      vulnerability = Vulnerability(entry_node, self.nsmap, self.product_filter)
+      
+      if apply_filter and not vulnerability.contains_filtered_product:
+        del vulnerability
+        continue
+      
       vulnerabilities.append(vulnerability)
     return vulnerabilities

@@ -32,6 +32,13 @@ class Database:
     """)
 
     cursor.execute("""
+      CREATE TABLE IF NOT EXISTS vendor (
+        vendor_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+      );
+    """)
+
+    cursor.execute("""
       CREATE TABLE IF NOT EXISTS product (
         product_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
         vendor TEXT NOT NULL,

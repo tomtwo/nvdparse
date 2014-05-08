@@ -21,6 +21,7 @@ logger.info("Reading in %s.." % (', '.join(filenames)))
 
 plugins = [
   ("adobe", "flash_player"),
+  ("oracle", "jre"),
   ("microsoft", "silverlight"),
   ("apple", "quicktime")
 ]
@@ -30,17 +31,16 @@ vulnerabilities = []
 for file in filenames:
   logger.info("Parsing %s.." % file)
 
-  p = NVDFileParser(file, plugins)
+  p = NVDFileParser(file, product_filter=plugins)
   vs = p.get_vulnerabilities()
   vulnerabilities.extend(vs)
 
-d = Database("datatmp.sqlite")
+# Open the database for insertion
+d = Database("datatmp2.sqlite")
+
 for v in vulnerabilities:
-  logger.info("Found %s" % v.id)
+  logger.info("Inserting vuln %s into database.." % v.id)
+  d.vulnerability_insert(v.cve_year, v.cve_id, v.summary, v.get_product_ids())
 
-  if v.contains_plugin:
-    logger.info("Inserting vuln %s into database.." % v.id)
-    d.vulnerability_insert(v.cve_year, v.cve_id, v.summary, v.get_product_ids())
-
-    for product in v.products:
-      d.product_insert(product.id, product.vendor, product.product, product.version)
+  for product in v.products:
+    d.product_insert(product.id, product.vendor, product.product, product.version)
