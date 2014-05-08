@@ -4,12 +4,14 @@ logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(m
 logger = logging.getLogger("database")
 
 class Database:
-  def __init__(self, filename, empty=False):
+  def __init__(self, filename, empty=False, simulate = False):
     if empty: # Empty the database before use
       os.remove(filename)
 
     # Either create a new or reopen an existing database
     self.conn = sqlite3.connect(filename)
+
+    self.simulate = simulate
 
     if not self.tables_exist(): 
       # Missing some tables
@@ -19,6 +21,9 @@ class Database:
     self.conn.close()
 
   def tables_create(self):
+    if self.simulate:
+      return
+
     logger.info("Attempting to (re)create tables")
     cursor = self.conn.cursor()
 
@@ -32,36 +37,20 @@ class Database:
     """)
 
     cursor.execute("""
-      CREATE TABLE IF NOT EXISTS vendor (
-        vendor_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
-      );
-    """)
-
-    cursor.execute("""
       CREATE TABLE IF NOT EXISTS product (
         product_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
         vendor TEXT NOT NULL,
-        product TEXT NOT NULL,
-        version TEXT NOT NULL 
+        product TEXT NOT NULL
       );
     """)
 
     cursor.execute("""
       CREATE TABLE IF NOT EXISTS vulnerability_product (
         product_id INTEGER NOT NULL REFERENCES product (product_id),
+        product_version TEXT NOT NULL,
         cve_year INTEGER NOT NULL REFERENCES vulnerability (cve_year),
         cve_id INTEGER NOT NULL REFERENCES vulnerability (cve_id),
         PRIMARY KEY (product_id, cve_year, cve_id)
-      );
-    """)
-
-    # Not yet in use, ignore
-    cursor.execute("""
-      CREATE TABLE IF NOT EXISTS vendor (
-        vendor_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        PRIMARY KEY (vendor_id)
       );
     """)
 
@@ -87,16 +76,21 @@ class Database:
 
     return retval
 
-  def product_insert(self, product_id, vendor, product, version):
+  def product_insert(self, product_id, vendor, product):
+    if self.simulate:
+      logger.info("simulate: INSERT product(%d, %s, %s)" 
+            % (product_id, vendor, product))
+      return True
+
     try:
       c = self.conn.cursor()
-      c.execute("INSERT INTO product VALUES (?,?,?,?)", (product_id, vendor, product, version,))
+      c.execute("INSERT INTO product VALUES (?,?,?)", (product_id, vendor, product,))
     except Exception, e:
       self.conn.rollback()
-      logger.error("Failed to insert product (%d, %s, %s, %s): %s" % (product_id, vendor, product, version, e))
+      logger.error("Failed to insert product (%d, %s, %s): %s" % (product_id, vendor, product, e))
       return False
     else:
-      logger.debug("Inserted product %d: %s %s %s" % (product_id, vendor, product, version))
+      logger.debug("Inserted product %d: %s %s" % (product_id, vendor, product))
       self.conn.commit()
       return True
 
@@ -109,18 +103,18 @@ class Database:
     # Lookup product ID for given product
     pass
 
-  def vulnerability_insert(self, cve_year, cve_id, description, product_ids):
-    last_product_id = -1
+  def vulnerability_insert(self, cve_year, cve_id, description):
+    if self.simulate:
+      logger.info("simulate: INSERT vulnerability(%d, %d, %s)" 
+            % (cve_year, cve_id, description))
+      return True
+
     try:
       c = self.conn.cursor()
       c.execute("INSERT INTO vulnerability VALUES (?,?,?)", (cve_year, cve_id, description,))
-      
-      for pid in product_ids:
-        last_product_id = pid
-        c.execute("INSERT INTO vulnerability_product VALUES (?,?,?)", (pid, cve_year, cve_id))
     except Exception, e:
       self.conn.rollback()
-      logger.error("Failed to insert vulnerability (%d, %d, %s, %d): %s" % (cve_year, cve_id, description, last_product_id, e))
+      logger.error("Failed to insert vulnerability (%d, %d, %s): %s" % (cve_year, cve_id, description, e))
       return False
     else:
       logger.debug("Inserted vulnerability CVE-%d-%d: %s" % (cve_year, cve_id, description))
@@ -132,6 +126,25 @@ class Database:
     c = self.conn.cursor()
     c.execute("SELECT description FROM vulnerability WHERE cve_year = ? AND cve_id = ?", (cve_year, cve_id,))
     return c.fetchone()
+
+  def vulnerability_product_insert(self, product_id, product_version, cve_year, cve_id):
+    if self.simulate:
+      logger.info("simulate: INSERT vulnerability_product(%d, %s, %d, %d)" 
+                  % (product_id, product_version, cve_year, cve_id))
+      return True
+
+    try:
+      c = self.conn.cursor()
+      c.execute("INSERT INTO vulnerability_product VALUES (?,?,?,?)", (product_id, product_version, cve_year, cve_id,))
+    except Exception, e:
+      self.conn.rollback()
+      logger.error("Failed to insert vulnerability_product (%d, %s, %d-%d, %s): %s" 
+                  % (product_id, product_version, cve_year, cve_id, e))
+      return False
+    else:
+      logger.debug("Inserted vulnerability_product CVE-%d-%d > %d / %s" % (cve_year, cve_id, product_id, product_version))
+      self.conn.commit()
+      return True
 
   def product_get_vulnerabilities(self, product_id):
     pass

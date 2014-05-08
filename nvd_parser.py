@@ -61,6 +61,10 @@ class Product:
   def isPlugin(self, plugins):
     return self.existsIn(plugins)
 
+  def equalTo(self, primitive_product):
+    # primitive_product is a (vendor, product) pair
+    return primitive_product[0] == self.vendor and primitive_product[1] == self.product
+
   @classmethod
   def genUID(_class):
     uid = _class.id_seed
@@ -95,6 +99,10 @@ class Product:
       
       if len(parts) > 4:
         version = parts[4]
+
+        if len(parts) > 5:
+          # Any more version info to add?
+          version += ':' + parts[5]
       else:
         # Has no version information attached
         version = ''
