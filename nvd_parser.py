@@ -100,7 +100,7 @@ class Product:
       if len(parts) > 4:
         version = parts[4]
 
-        if len(parts) > 5:
+        if len(parts) > 5 and len(parts[5]) > 0:
           # Any more version info to add?
           version += ':' + parts[5]
       else:

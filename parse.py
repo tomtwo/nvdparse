@@ -8,7 +8,7 @@ from hashids import Hashids
 logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
 
-hasher = Hashids("my secret salt")
+hasher = Hashids("salt")
 
 if len(sys.argv) < 2:
   sys.exit("Usage: %s [NVD xml file(s)]" % (sys.argv[0]))
@@ -39,7 +39,7 @@ for file in filenames:
   vulnerabilities.extend(vs)
 
 # Open the database for insertion
-db = Database("datatmp2.sqlite", simulate=True)
+db = Database("data.sqlite", simulate=True)
 
 # Insert the products we're searching for into the db to map to vulnerabilities
 for i in xrange(len(plugins)):
@@ -76,7 +76,6 @@ for v in vulnerabilities:
           vs = half[0].split('.')                                 # split main version into major/minor/rev parts
           vs.append(half[1].split('_')[1])                        # remove update_ prefix from update part
           vs = map(int, vs)                                       # cast strings to ints
-          logger.info(vs)
           version = hasher.encrypt(vs[0], vs[1], vs[2], vs[3])
 
         elif i == 2:   # silverlight
@@ -88,8 +87,8 @@ for v in vulnerabilities:
         elif i == 3:   # quicktime
           # example: 7.7.2.0 (usually just 7.7.2)
           vs = product.version.split('.')
-          vs = map(int, vs)
           logger.info(product.version)
+          vs = map(int, vs)
           logger.info(vs)
 
           while len(vs) < 4:
