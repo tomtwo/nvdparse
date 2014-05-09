@@ -96,12 +96,9 @@ for v in vulnerabilities:
           # the 1.4.2_38 case
           vs2 = vs[2].split('_')
           if len(vs2) > 1:
-            logger.info(vs)
-            logger.info(vs2)
             vs[2] = vs2[0]
             vs.append(vs2[1]) # awful TODO
 
-          logger.info(half)
           if len(half) > 1:                                       # contains update_ prefix?
             vs.append(re.sub("[^0-9]", "", half[1]))              # remove non-numeric chars 
 
@@ -132,6 +129,5 @@ for v in vulnerabilities:
           version = hasher.encrypt(vs[0], vs[1], vs[2], vs[3])
 
         # Add vulnerability_product entry to map product & version to a vulnerability
-        print v
         ret = db.vulnerability_product_insert(i, version, v.cve_year, v.cve_id)
 
