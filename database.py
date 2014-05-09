@@ -1,6 +1,6 @@
 import sys, os, sqlite3, logging
 
-logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("database")
 
 class Database:
@@ -50,7 +50,7 @@ class Database:
         product_version TEXT NOT NULL,
         cve_year INTEGER NOT NULL REFERENCES vulnerability (cve_year),
         cve_id INTEGER NOT NULL REFERENCES vulnerability (cve_id),
-        PRIMARY KEY (product_id, cve_year, cve_id)
+        PRIMARY KEY (product_id, product_version, cve_year, cve_id)
       );
     """)
 
@@ -138,7 +138,7 @@ class Database:
       c.execute("INSERT INTO vulnerability_product VALUES (?,?,?,?)", (product_id, product_version, cve_year, cve_id,))
     except Exception, e:
       self.conn.rollback()
-      logger.error("Failed to insert vulnerability_product (%d, %s, %d-%d, %s): %s" 
+      logger.error("Failed to insert vulnerability_product (%d, %s, %d-%d): %s" 
                   % (product_id, product_version, cve_year, cve_id, e))
       return False
     else:

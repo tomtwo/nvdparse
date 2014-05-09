@@ -1,4 +1,9 @@
 from lxml import etree
+import re
+
+_digit_search = re.compile('\d')
+def containsDigit(d):
+  return bool(_digit_search.search(d))
 
 class Vulnerability:
   def __init__(self, entry, nsmap, product_filter):
@@ -9,15 +14,18 @@ class Vulnerability:
     self.cve_id = int(cve[2])
 
     self.date_published = entry.xpath('vuln:published-datetime/text()', namespaces=nsmap)
-    self.summary = entry.xpath('vuln:summary/text()', namespaces=nsmap)
+    self.summary = entry.xpath('vuln:summary/text()', namespaces=nsmap)[0]
     self.products = []
     self.contains_filtered_product = False
 
     products = entry.xpath('vuln:vulnerable-software-list/vuln:product', namespaces=nsmap)
     for p in products:
       pr = Product.fromString(p.text)
-      self.contains_filtered_product |= pr.existsIn(product_filter)
-      self.products.append(pr)
+
+      if len(pr.version):
+        # We don't want to deal with versionless products!
+        self.contains_filtered_product |= pr.existsIn(product_filter)
+        self.products.append(pr)
 
   def __str__(self):
     return "Vuln %s>>> %s" % (self.id, "contains queried product" if self.contains_filtered_product else "")
@@ -100,7 +108,7 @@ class Product:
       if len(parts) > 4:
         version = parts[4]
 
-        if len(parts) > 5 and len(parts[5]) > 0:
+        if len(parts) > 5 and len(parts[5]) > 0 and containsDigit(parts[5]):
           # Any more version info to add?
           version += ':' + parts[5]
       else:
