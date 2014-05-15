@@ -22,10 +22,16 @@ class Vulnerability:
     for p in products:
       pr = Product.fromString(p.text)
 
-      if len(pr.version):
-        # We don't want to deal with versionless products!
-        self.contains_filtered_product |= pr.existsIn(product_filter)
-        self.products.append(pr)
+      if len(pr.version): # We don't want to deal with versionless products!
+        # Is this a product we're interested in?
+        is_needle = pr.existsIn(product_filter)
+
+        self.contains_filtered_product |= is_needle
+
+        if is_needle:
+          self.products.append(pr)
+        else:
+          del pr
 
   def __str__(self):
     return "Vuln %s>>> %s" % (self.id, "contains queried product" if self.contains_filtered_product else "")
@@ -79,6 +85,7 @@ class Product:
     _class.id_seed += 1
     return uid
 
+  @classmethod
   def fromUID(_class, product_id):
     return _class.global_product_list[product_id]
 
@@ -128,14 +135,16 @@ class NVDFileParser:
   def __init__(self, filename, product_filter=[]):
     self.tree = etree.parse(filename)
     self.product_filter = product_filter
-    self.nsmap = {}
-    # Getting all the namespaces
-    self.nsmap = {}
+    self.nsmap = self.get_namespaces()
+
+  def get_namespaces(self):
+    nsmap = {}
     for ns in self.tree.xpath('//namespace::*'):
       if ns[0]: # Removes the None namespace, neither needed nor supported.
-        self.nsmap[ns[0]] = ns[1]
+        nsmap[ns[0]] = ns[1]
       else: # We actually do need it for the default namespace
-        self.nsmap['def'] = ns[1]
+        nsmap['def'] = ns[1]
+    return nsmap
 
   def get_vulnerabilities(self):
     vulnerabilities = []
