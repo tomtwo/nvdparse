@@ -11,8 +11,6 @@ from version_parser import *
 logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
 
-hasher = Hashids("salt")
-
 
 parser = argparse.ArgumentParser(description='| Parse nvd xml files into sqlite db')
 parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='+',
@@ -23,9 +21,11 @@ parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='+',
 parser.add_argument('--simulate', help='parse only, do not write to db', action='store_true', default=False)
 parser.add_argument('--emptydb', help='clear database before insertion', action='store_true', default=False)
 parser.add_argument('--database', help='database file to write to', type=str, default='data.sqlite')
-parser.add_argument('--salt', help='salt to encrypt version numbers with', type=str, nargs=1, default='salt')
+parser.add_argument('--salt', help='salt to encrypt version numbers with', type=str, default='salt')
 
 args = parser.parse_args()
+
+hasher = Hashids(args.salt)
 
 filenames = args.filenames
 
