@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, logging, re
+import sys, os, logging, re, argparse
 from hashids import Hashids
 from string import maketrans
 
@@ -13,10 +13,21 @@ logger = logging.getLogger("parser")
 
 hasher = Hashids("salt")
 
-if len(sys.argv) < 2:
-  sys.exit("Usage: %s [NVD xml file(s)]" % (sys.argv[0]))
 
-filenames = sys.argv[1:]
+parser = argparse.ArgumentParser(description='| Parse nvd xml files into sqlite db')
+parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='+',
+                   help='nvd xml files to parse')
+# parser.add_argument('--simulate', dest='accumulate', action='store_const',
+#                    const=sum, default=max,
+#                    help='sum the integers (default: find the max)')
+parser.add_argument('--simulate', help='parse only, do not write to db', action='store_true', default=False)
+parser.add_argument('--emptydb', help='clear database before insertion', action='store_true', default=False)
+parser.add_argument('--database', help='database file to write to', type=str, default='data.sqlite')
+parser.add_argument('--salt', help='salt to encrypt version numbers with', type=str, nargs=1, default='salt')
+
+args = parser.parse_args()
+
+filenames = args.filenames
 
 for file in filenames:
   # Check all inputted files exist
@@ -42,7 +53,7 @@ for file in filenames:
   vulnerabilities.extend(vs)
 
 # Open the database for insertion
-db = Database("data.sqlite")
+db = Database(args.database, empty=args.emptydb, simulate=args.simulate)
 
 # Insert the products we're searching for into the db to map to vulnerabilities
 for i in xrange(len(plugins)):

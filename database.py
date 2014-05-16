@@ -1,6 +1,6 @@
 import sys, os, sqlite3, logging
 
-logging.basicConfig(level=logging.INFO, format="%(name)-8s: %(levelname)-8s %(message)s")
+logging.basicConfig(level=logging.WARN, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("database")
 
 class Database:
