@@ -11,12 +11,13 @@ from version_parser import *
 logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
 
+
 # --------------------------------- #
 #         Argument Parsing          #
 # --------------------------------- #
 
 parser = argparse.ArgumentParser(description='| Parse nvd xml files into sqlite db')
-parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='+',
+parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='*',
                    help='nvd xml files to parse')
 # parser.add_argument('--simulate', dest='accumulate', action='store_const',
 #                    const=sum, default=max,
@@ -29,24 +30,69 @@ parser.add_argument('--interactive', help='enable interactive input of input par
 
 args = parser.parse_args()
 
+if args.interactive is False and len(args.filenames) == 0:
+  parser.error("input xml paths required as arguments in non-interactive mode")
+
 filenames = args.filenames
 salt = args.salt
 emptydb = args.emptydb
 simulate = args.simulate
 database = args.database
+plugins = []
 
+def read_list(prompt=">", processor=None):
+  res = []
+  while True:
+    val = raw_input("%s " % prompt)
+
+    if len(val) == 0:
+      break
+    else:
+      if processor is not None:
+        val = processor(val)
+
+      res.append(val)
+
+  return res
 
 if args.interactive:
   # Override arguments with any inputted into program
   simulate = raw_input("Simulate? [Y/n]: ")
-  salt = raw_input("Salt? [salt]: ")
+  salt = raw_input("Salt? [%s]: " % salt)
   emptydb = raw_input("Empty DB? [y/N]: ")
-  database = raw_input("Output DB? [filename]: ")
+  database = raw_input("Output DB? [%s]: " % database)
 
   simulate = simulate == 'y' or simulate == ''
   salt = salt or args.salt
   emptydb = emptydb == 'y'
   database = database or args.database
+
+  # Read filenames
+  print "Enter all NVD XML filenames to parse, separated by newlines."
+  print "Empty line to end input"
+  filenames = read_list()
+
+  # Read plugins, comma separates
+  print "Enter all products to filter by, separated by newlines"
+  print "Empty line to end input"
+  products = read_list()
+
+  for p in products:
+    split = p.split(' ')
+    vendor = split[0]
+    product = split[1]
+
+    # Add vendor, product tuple to list
+    plugins.append((vendor, product))
+
+if not len(filenames):
+  print "No files to parse; exiting"
+  sys.exit(0)
+
+
+# ---------------------------------------- #
+#  Instantiate hasher for version strings  #
+# ---------------------------------------- #
 
 hasher = Hashids(salt)
 
@@ -87,7 +133,8 @@ db = Database(database, empty=emptydb, simulate=simulate)
 #   Plugins we are searching for    #
 # --------------------------------- #
 
-plugins = [
+# Either accept plugins given before, or use default set
+plugins = plugins or [
   ("adobe", "flash_player"),
   ("oracle", "jre"),
   ("microsoft", "silverlight"),
