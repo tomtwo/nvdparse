@@ -121,6 +121,11 @@ class Database:
       c.execute("INSERT INTO vulnerability VALUES (?,?,?)", (cve_year, cve_id, description,))
     except Exception, e:
       self.conn.rollback()
+
+      if "not unique" in str(e):
+        # Already exists, ignore
+        return True
+
       logger.error("Failed to insert vulnerability (%d, %d, %s): %s" % (cve_year, cve_id, description, e))
       return False
     else:
