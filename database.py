@@ -54,6 +54,13 @@ class Database:
       );
     """)
 
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS config (
+        key TEXT NOT NULL PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    """)
+
     # commit changes
     self.conn.commit()
 
@@ -62,7 +69,7 @@ class Database:
     c = self.conn.cursor()
     c.execute("SELECT name FROM sqlite_master WHERE type='table';")
 
-    required_tables = ["vulnerability", "product", "vulnerability_product", "vendor"]
+    required_tables = ["vulnerability", "product", "vulnerability_product", "vendor", "config"]
     table_existence = [False for x in range(len(required_tables))]
 
     for table in c.fetchall():
@@ -148,3 +155,34 @@ class Database:
 
   def product_get_vulnerabilities(self, product_id):
     pass
+
+  def config_get(self, key):
+    c = self.conn.cursor()
+    c.execute("SELECT value FROM config WHERE key = ?", (key,))
+    val = c.fetchone() or [None]
+    return val[0]
+
+  def config_set(self, key, val):
+    c = self.conn.cursor()
+    try:
+      # Attempt to insert key
+      c.execute("INSERT INTO config VALUES (?, ?)", (key, val))
+    except Exception, e:
+      try:
+        # Failing that, update key already set
+        c.execute("UPDATE config SET value = ? WHERE key = ?", (val, key))
+      except Exception, e2:
+        # Failing that, accept failure
+        return False
+    finally:
+      # Report success
+      return True
+
+  def salt_get(self):
+    return self.config_get('salt')
+
+  def salt_set(self, salt):
+    return self.config_set('salt', salt)
+
+
+
