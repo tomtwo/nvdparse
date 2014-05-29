@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import sys, os, logging, re, argparse
 from hashids import Hashids
@@ -8,7 +9,7 @@ from database import Database
 from nvd_parser import NVDFileParser, Vulnerability, Product
 from version_parser import *
 
-logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
 
 
@@ -70,7 +71,7 @@ if args.interactive:
   # Read filenames
   print "Enter all NVD XML filenames to parse, separated by newlines."
   print "Empty line to end input"
-  filenames = read_list()
+  filenames = read_list() or filenames
 
   # Read plugins, comma separates
   print "Enter all products to filter by, separated by newlines"
@@ -127,6 +128,18 @@ for file in filenames:
 # --------------------------------- #
 
 db = Database(database, empty=emptydb, simulate=simulate)
+
+
+# --------------------------------- #
+#    Read salt value and compare    #
+# --------------------------------- #
+
+db_salt = db.salt_get()
+if not emptydb and db_salt != None and db_salt != salt:
+  logger.info("Salt mismatch, clearing database")
+  db = Database(database, True, simulate)
+
+db.salt_set(salt)
 
 
 # --------------------------------- #
