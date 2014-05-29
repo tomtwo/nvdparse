@@ -6,8 +6,7 @@ from hashids import Hashids
 from string import maketrans
 
 from database import Database
-from nvd_parser import NVDFileParser, Vulnerability, Product
-from version_parser import *
+from nvd_parser import NVDFileParser, Vulnerability, Product, Util
 
 logging.basicConfig(level=logging.INFO, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
@@ -172,7 +171,7 @@ for v in vulnerabilities:
         logger.info("\t> %s" % product)
 
         # Generate hashid for version string
-        vs = parse_version(i, product.version)
+        vs = Util.parse_version(product.version)
 
         version = hasher.encrypt(vs[0], vs[1], vs[2], vs[3])
 

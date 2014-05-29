@@ -1,10 +1,6 @@
 from lxml import etree
 import re
 
-_digit_search = re.compile('\d')
-def containsDigit(d):
-  return bool(_digit_search.search(d))
-
 class Vulnerability:
   def __init__(self, entry, nsmap, product_filter):
     self.id = entry.xpath('vuln:cve-id/text()', namespaces=nsmap)[0] # Pick first from list
@@ -115,7 +111,7 @@ class Product:
       if len(parts) > 4:
         version = parts[4]
 
-        if len(parts) > 5 and len(parts[5]) > 0 and containsDigit(parts[5]):
+        if len(parts) > 5 and len(parts[5]) > 0 and Util.contains_digit(parts[5]):
           # Any more version info to add?
           version += ':' + parts[5]
       else:
@@ -158,3 +154,22 @@ class NVDFileParser:
       
       vulnerabilities.append(vulnerability)
     return vulnerabilities
+
+
+class Util:
+  _digit_search = re.compile('\d')
+
+  @classmethod
+  def contains_digit(_class, d):
+    return bool(_class._digit_search.search(d))
+
+  @classmethod
+  def parse_version(_class, version_string):
+    # Generate list of numbers (string values)
+    vs = re.findall(r'\d+', version_string)
+
+    # Convert the strings to integers
+    vs = map(int, vs)
+
+    return vs
+
