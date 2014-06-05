@@ -171,5 +171,10 @@ class Util:
     # Convert the strings to integers
     vs = map(int, vs)
 
-    return vs
+    # If the version is shorter than 4 wide, we append nothings
+    while(len(vs) < 4):
+      vs.append(None)
+
+    # Limit to 4 version numbers
+    return vs[:4]
 
