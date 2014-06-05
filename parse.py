@@ -38,7 +38,7 @@ salt = args.salt
 emptydb = args.emptydb
 simulate = args.simulate
 database = args.database
-plugins = []
+products = []
 
 def read_list(prompt=">", processor=None):
   res = []
@@ -75,15 +75,15 @@ if args.interactive:
   # Read plugins, comma separates
   print "Enter all products to filter by, separated by newlines"
   print "Empty line to end input"
-  products = read_list()
+  raw_products = read_list()
 
-  for p in products:
+  for p in raw_products:
     split = p.split(' ')
     vendor = split[0]
     product = split[1]
 
     # Add vendor, product tuple to list
-    plugins.append((vendor, product))
+    products.append((vendor, product))
 
 if not len(filenames):
   print "No files to parse; exiting"
@@ -117,7 +117,7 @@ vulnerabilities = []
 for file in filenames:
   logger.info("Parsing %s.." % file)
 
-  p = NVDFileParser(file, product_filter=plugins)
+  p = NVDFileParser(file, product_filter=products)
   vs = p.get_vulnerabilities()
   vulnerabilities.extend(vs)
 
@@ -145,18 +145,17 @@ db.salt_set(salt)
 #   Plugins we are searching for    #
 # --------------------------------- #
 
-# Either accept plugins given before, or use default set
-plugins = plugins or [
-  ("adobe", "flash_player"),
-  ("oracle", "jre"),
-  ("microsoft", "silverlight"),
-  ("apple", "quicktime")
-]
+# Check if any products were given
+if not products:
+  logger.error("No products given to parser; nothing to retrieve")
+
+  # Exit with failure status
+  sys.exit(1)
 
 # Insert the products we're searching for into the db to map to vulnerabilities
-for i in xrange(len(plugins)):
-  vendor = plugins[i][0]
-  product = plugins[i][1]
+for i in xrange(len(products)):
+  vendor = products[i][0]
+  product = products[i][1]
 
   db.product_insert(i, vendor, product)
 
