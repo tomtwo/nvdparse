@@ -1,4 +1,4 @@
-import sys, os, sqlite3, logging
+import sys, os, sqlite3, logging, string
 
 logging.basicConfig(level=logging.WARN, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("database")
@@ -46,11 +46,15 @@ class Database:
 
     cursor.execute("""
       CREATE TABLE IF NOT EXISTS vulnerability_product (
-        product_id INTEGER NOT NULL REFERENCES product (product_id),
-        product_version TEXT NOT NULL,
         cve_year INTEGER NOT NULL REFERENCES vulnerability (cve_year),
         cve_id INTEGER NOT NULL REFERENCES vulnerability (cve_id),
-        PRIMARY KEY (product_id, product_version, cve_year, cve_id)
+        product_id INTEGER NOT NULL REFERENCES product (product_id),
+        product_version_major INTEGER NOT NULL,
+        product_version_minor INTEGER NULL,
+        product_version_patch INTEGER NULL,
+        product_version_build INTEGER NULL,
+        PRIMARY KEY (cve_year, cve_id, product_id, product_version_major,
+                     product_version_minor, product_version_patch, product_version_build)
       );
     """)
 
@@ -140,26 +144,52 @@ class Database:
     return c.fetchone()
 
   def vulnerability_product_insert(self, product_id, product_version, cve_year, cve_id):
+    vs = map(str, product_version)
+    vstring = string.join(vs, '.')
     if self.simulate:
       logger.info("simulate: INSERT vulnerability_product(%d, %s, %d, %d)" 
-                  % (product_id, product_version, cve_year, cve_id))
+                  % (product_id, vstring, cve_year, cve_id))
       return True
 
     try:
       c = self.conn.cursor()
-      c.execute("INSERT INTO vulnerability_product VALUES (?,?,?,?)", (product_id, product_version, cve_year, cve_id,))
+      c.execute("INSERT INTO vulnerability_product VALUES (?,?,?,?,?,?,?)", (cve_year, cve_id, product_id, product_version[0], product_version[1], product_version[2], product_version[3],))
     except Exception, e:
       self.conn.rollback()
       logger.error("Failed to insert vulnerability_product (%d, %s, %d-%d): %s" 
-                  % (product_id, product_version, cve_year, cve_id, e))
+                  % (product_id, vstring, cve_year, cve_id, e))
       return False
     else:
       logger.debug("Inserted vulnerability_product CVE-%d-%d > %d / %s" % (cve_year, cve_id, product_id, product_version))
       self.conn.commit()
       return True
 
-  def product_get_vulnerabilities(self, product_id):
-    pass
+  def product_get_vulnerabilities(self, product_id, product_version):
+    c = self.conn.cursor()
+
+    fields = ["major", "minor", "patch", "build"]
+    query_string = """SELECT cve_year, cve_id 
+      FROM vulnerability_product
+      WHERE product_id = ? """
+    max_id = 0
+    tuple = (product_id,)
+    for i in xrange(len(product_version)):
+      if product_version[i] == None:
+        break
+      else:
+        max_id = i
+        query_string += "AND product_version_" + fields[i] + " = ? "
+
+    for i in range(0, max_id):
+      tuple += (product_version[i],)
+
+    tuple += (product_version[max_id],)
+
+    print query_string
+    print tuple
+
+    c.execute(query_string, tuple)
+    return c.fetchall()
 
   def config_get(self, key):
     c = self.conn.cursor()
