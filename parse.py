@@ -99,6 +99,17 @@ logger.info("Reading in %s.." % (', '.join(filenames)))
 vulnerabilities = []
 
 
+# ---------------------------------- #
+#  Check if any products were given  #
+# ---------------------------------- #
+
+if not products:
+  logger.error("No products given to parser; nothing to retrieve")
+
+  # Exit with failure status
+  sys.exit(1)
+
+
 # -------------------------------------- #
 #   Read vulnerabilities from XML files  #
 # -------------------------------------- #
@@ -119,17 +130,9 @@ db = Database(database, empty=emptydb, simulate=simulate)
 
 
 # --------------------------------- #
-#   Plugins we are searching for    #
+#   Insert products into database   #
 # --------------------------------- #
 
-# Check if any products were given
-if not products:
-  logger.error("No products given to parser; nothing to retrieve")
-
-  # Exit with failure status
-  sys.exit(1)
-
-# Insert the products we're searching for into the db to map to vulnerabilities
 for i in xrange(len(products)):
   vendor = products[i][0]
   product = products[i][1]

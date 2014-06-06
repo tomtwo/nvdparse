@@ -129,8 +129,11 @@ class Product:
 # Parses a single NVD XML file
 class NVDFileParser:
   def __init__(self, filename, product_filter=[]):
+    print "NVDFileParser(", filename, ")"
     self.line_count = sum(1 for line in open(filename))
+    print "\tcount:", self.line_count
     self.tree = etree.parse(filename)
+    print "\tparsed."
     self.product_filter = product_filter
     self.nsmap = self.get_namespaces()
 
