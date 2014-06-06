@@ -146,7 +146,7 @@ for v in vulnerabilities:
       if product.equalTo(products[i]):
         logger.info("\t> %s" % product)
 
-        # Generate hashid for version string
+        # Parse version string into array of integers
         vs = Util.parse_version(product.version)
 
         # Add vulnerability_product entry to map product & version to a vulnerability
