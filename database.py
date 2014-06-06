@@ -3,9 +3,15 @@ import sys, os, sqlite3, logging, string
 logging.basicConfig(level=logging.WARN, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("database")
 
+VERSION_FIELDS = ["major", "minor", "patch", "build"]
+
 class Database:
   def __init__(self, filename, empty=False, simulate = False):
-    if empty: # Empty the database before use
+    # Need version fields to continue
+    assert(len(VERSION_FIELDS) > 0)
+
+    # Empty the database before use
+    if empty and os.path.isfile(filename): 
       os.remove(filename)
 
     # Either create a new or reopen an existing database
@@ -167,28 +173,25 @@ class Database:
   def product_get_vulnerabilities(self, product_id, product_version):
     c = self.conn.cursor()
 
-    fields = ["major", "minor", "patch", "build"]
+    # Build SQL query
     query_string = """SELECT cve_year, cve_id 
       FROM vulnerability_product
       WHERE product_id = ? """
-    max_id = 0
+    
+    # Build tuple of arguments to pass to SQL
     tuple = (product_id,)
-    for i in xrange(len(product_version)):
+
+    # Differentiate between IS NULL checks and equals value checks
+    for i in xrange(min(len(product_version), len(VERSION_FIELDS))):
       if product_version[i] == None:
-        break
+        query_string += " AND product_version_" + VERSION_FIELDS[i] + " IS NULL"
       else:
-        max_id = i
-        query_string += "AND product_version_" + fields[i] + " = ? "
-
-    for i in range(0, max_id):
-      tuple += (product_version[i],)
-
-    tuple += (product_version[max_id],)
-
-    print query_string
-    print tuple
+        tuple += (product_version[i],)
+        query_string += " AND product_version_" + VERSION_FIELDS[i] + " = ?"
 
     c.execute(query_string, tuple)
+
+    # Fetch all vulnerabilities
     return c.fetchall()
 
   def config_get(self, key):

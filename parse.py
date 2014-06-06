@@ -25,7 +25,6 @@ parser.add_argument('filenames', metavar='nvd xml file', type=str, nargs='*',
 parser.add_argument('--simulate', help='parse only, do not write to db', action='store_true', default=False)
 parser.add_argument('--emptydb', help='clear database before insertion', action='store_true', default=False)
 parser.add_argument('--database', help='database file to write to', type=str, default='data.sqlite')
-parser.add_argument('--salt', help='salt to encrypt version numbers with', type=str, default='salt')
 parser.add_argument('--interactive', help='enable interactive input of input parameters', action='store_true', default=False)
 
 args = parser.parse_args()
@@ -34,7 +33,6 @@ if args.interactive is False and len(args.filenames) == 0:
   parser.error("input xml paths required as arguments in non-interactive mode")
 
 filenames = args.filenames
-salt = args.salt
 emptydb = args.emptydb
 simulate = args.simulate
 database = args.database
@@ -58,12 +56,10 @@ def read_list(prompt=">", processor=None):
 if args.interactive:
   # Override arguments with any inputted into program
   simulate = raw_input("Simulate? [Y/n]: ")
-  salt = raw_input("Salt? [%s]: " % salt)
   emptydb = raw_input("Empty DB? [y/N]: ")
   database = raw_input("Output DB? [%s]: " % database)
 
   simulate = simulate == 'y' or simulate == ''
-  salt = salt or args.salt
   emptydb = emptydb == 'y'
   database = database or args.database
 
@@ -88,13 +84,6 @@ if args.interactive:
 if not len(filenames):
   print "No files to parse; exiting"
   sys.exit(0)
-
-
-# ---------------------------------------- #
-#  Instantiate hasher for version strings  #
-# ---------------------------------------- #
-
-hasher = Hashids(salt)
 
 
 # --------------------------------- #
@@ -164,16 +153,14 @@ for v in vulnerabilities:
   db.vulnerability_insert(v.cve_year, v.cve_id, v.summary)
 
   for product in v.products:
-    for i in xrange(len(plugins)):
+    for i in xrange(len(products)):
 
-      if product.equalTo(plugins[i]):
+      if product.equalTo(products[i]):
         logger.info("\t> %s" % product)
 
         # Generate hashid for version string
         vs = Util.parse_version(product.version)
 
-        version = hasher.encrypt(vs[0], vs[1], vs[2], vs[3])
-
         # Add vulnerability_product entry to map product & version to a vulnerability
-        ret = db.vulnerability_product_insert(i, version, v.cve_year, v.cve_id)
+        ret = db.vulnerability_product_insert(i, vs, v.cve_year, v.cve_id)
 
