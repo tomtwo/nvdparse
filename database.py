@@ -216,11 +216,4 @@ class Database:
       # Report success
       return True
 
-  def salt_get(self):
-    return self.config_get('salt')
-
-  def salt_set(self, salt):
-    return self.config_set('salt', salt)
-
-
 

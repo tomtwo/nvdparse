@@ -119,18 +119,6 @@ db = Database(database, empty=emptydb, simulate=simulate)
 
 
 # --------------------------------- #
-#    Read salt value and compare    #
-# --------------------------------- #
-
-db_salt = db.salt_get()
-if not emptydb and db_salt != None and db_salt != salt:
-  logger.info("Salt mismatch, clearing database")
-  db = Database(database, True, simulate)
-
-db.salt_set(salt)
-
-
-# --------------------------------- #
 #   Plugins we are searching for    #
 # --------------------------------- #
 
