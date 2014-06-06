@@ -26,6 +26,7 @@ parser.add_argument('--simulate', help='parse only, do not write to db', action=
 parser.add_argument('--emptydb', help='clear database before insertion', action='store_true', default=False)
 parser.add_argument('--database', help='database file to write to', type=str, default='data.sqlite')
 parser.add_argument('--interactive', help='enable interactive input of input parameters', action='store_true', default=False)
+parser.add_argument('--products', help='products to search for in nvd', type=str, default='')
 
 args = parser.parse_args()
 
@@ -37,6 +38,10 @@ emptydb = args.emptydb
 simulate = args.simulate
 database = args.database
 products = []
+
+if args.products:
+  # expected format: adobe flash_player&apple quicktime&oracle jre ...
+  products = list(tuple(x.split(' ')) for x in args.products.split('&'))
 
 def read_list(prompt=">", processor=None):
   res = []
