@@ -8,7 +8,7 @@ from string import maketrans
 from database import Database
 from nvd_parser import NVDFileParser, Vulnerability, Product, Util
 
-logging.basicConfig(level=logging.INFO, format="%(name)-8s: %(levelname)-8s %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(name)-8s: %(levelname)-8s %(message)s")
 logger = logging.getLogger("parser")
 
 
@@ -115,6 +115,13 @@ if not products:
   sys.exit(1)
 
 
+# --------------------------------- #
+#       Open SQLite database        #
+# --------------------------------- #
+
+db = Database(database, empty=emptydb, simulate=simulate)
+
+
 # -------------------------------------- #
 #   Read vulnerabilities from XML files  #
 # -------------------------------------- #
@@ -125,13 +132,6 @@ for file in filenames:
   p = NVDFileParser(file, product_filter=products)
   vs = p.get_vulnerabilities()
   vulnerabilities.extend(vs)
-
-
-# --------------------------------- #
-#       Open SQLite database        #
-# --------------------------------- #
-
-db = Database(database, empty=emptydb, simulate=simulate)
 
 
 # --------------------------------- #
@@ -146,7 +146,7 @@ for i in xrange(len(products)):
 
 for v in vulnerabilities:
   logger.info("Inserting vuln %s into database.." % v.id)
-  db.vulnerability_insert(v.cve_year, v.cve_id, v.summary)
+  db.vulnerability_insert(v.cve_year, v.cve_id, v.summary, len(v.dependencies) > 0)
 
   for product in v.products:
     for i in xrange(len(products)):
@@ -160,3 +160,13 @@ for v in vulnerabilities:
         # Add vulnerability_product entry to map product & version to a vulnerability
         ret = db.vulnerability_product_insert(i, vs, v.cve_year, v.cve_id)
 
+  for dependency in v.dependencies:
+    print "CVE-%d-%d depends on %s" % (v.cve_year, v.cve_id, dependency)
+    db.dependency_insert(v.cve_year, v.cve_id, dependency.getIndexIn(products))
+    print "grabbing rows"
+    print db.dependencies_get(v.cve_year, v.cve_id)
+
+print "---"
+print db.dependencies_get(2013, 965)
+print db.dependencies_get(2012, 666)
+print db.dependencies_get(2013, 667)

@@ -11,7 +11,7 @@ class Database:
     assert(len(VERSION_FIELDS) > 0)
 
     # Empty the database before use
-    if empty and os.path.isfile(filename): 
+    if not simulate and empty and os.path.isfile(filename): 
       os.remove(filename)
 
     # Either create a new or reopen an existing database
@@ -38,6 +38,7 @@ class Database:
         cve_year INTEGER NOT NULL,
         cve_id INTEGER NOT NULL,
         description TEXT DEFAULT NULL,
+        has_dependency INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (cve_year, cve_id)
       );
     """)
@@ -65,6 +66,16 @@ class Database:
     """)
 
     cursor.execute("""
+      CREATE TABLE IF NOT EXISTS vulnerability_dependency (
+        cve_year INTEGER NOT NULL REFERENCES vulnerability (cve_year),
+        cve_id INTEGER NOT NULL REFERENCES vulnerability (cve_id),
+        product_id INTEGER NOT NULL REFERENCES product (product_id),
+        PRIMARY KEY (cve_year, cve_id, product_id)
+      );
+
+    """)
+
+    cursor.execute("""
       CREATE TABLE IF NOT EXISTS config (
         key TEXT NOT NULL PRIMARY KEY,
         value TEXT NOT NULL
@@ -79,7 +90,8 @@ class Database:
     c = self.conn.cursor()
     c.execute("SELECT name FROM sqlite_master WHERE type='table';")
 
-    required_tables = ["vulnerability", "product", "vulnerability_product", "vendor", "config"]
+    required_tables = ["vulnerability", "product", "vulnerability_product", 
+                       "vulnerability_dependency", "config"]
     table_existence = [False for x in range(len(required_tables))]
 
     for table in c.fetchall():
@@ -104,6 +116,11 @@ class Database:
       c.execute("INSERT INTO product VALUES (?,?,?)", (product_id, vendor, product,))
     except Exception, e:
       self.conn.rollback()
+
+      if "not unique" in str(e):
+        # Already exists, can ignore error
+        return True
+
       logger.error("Failed to insert product (%d, %s, %s): %s" % (product_id, vendor, product, e))
       return False
     else:
@@ -120,15 +137,15 @@ class Database:
     # Lookup product ID for given product
     pass
 
-  def vulnerability_insert(self, cve_year, cve_id, description):
+  def vulnerability_insert(self, cve_year, cve_id, description, has_dependency=False):
     if self.simulate:
-      logger.info("simulate: INSERT vulnerability(%d, %d, %s)" 
-            % (cve_year, cve_id, description))
+      logger.info("simulate: INSERT vulnerability(%d, %d, %s, %s)" 
+            % (cve_year, cve_id, description, 'True' if has_dependency else 'False'))
       return True
 
     try:
       c = self.conn.cursor()
-      c.execute("INSERT INTO vulnerability VALUES (?,?,?)", (cve_year, cve_id, description,))
+      c.execute("INSERT INTO vulnerability VALUES (?,?,?,?)", (cve_year, cve_id, description, (1 if has_dependency else 0)))
     except Exception, e:
       self.conn.rollback()
 
@@ -147,6 +164,31 @@ class Database:
     # Find the description of a vulnerability
     c = self.conn.cursor()
     c.execute("SELECT description FROM vulnerability WHERE cve_year = ? AND cve_id = ?", (cve_year, cve_id,))
+    return c.fetchone()
+
+  def dependency_insert(self, cve_year, cve_id, product_id):
+    # Map a vulnerability as having a dependency
+
+    values = (cve_year, cve_id, product_id)
+
+    logger.warn("simulate: INSERT dependency(%d, %d, %d)" % values)
+    if self.simulate:
+      return True
+
+    try:
+      c = self.conn.cursor()
+      c.execute("INSERT INTO vulnerability_dependency VALUES (?,?,?)", values)
+    except Exception, e:
+      self.conn.rollback()
+      logger.error("Failed to insert dependency (%d, %d, %d): %s" % (values + (str(e),)))
+      return False
+    else:
+      logger.info("Inserted dependency (%d, %d, %d)" % values)
+      return True
+
+  def dependencies_get(self, cve_year, cve_id):
+    c = self.conn.cursor()
+    c.execute("SELECT * FROM vulnerability_dependency WHERE cve_year = ? AND cve_id = ?", (cve_year, cve_id))
     return c.fetchone()
 
   def vulnerability_product_insert(self, product_id, product_version, cve_year, cve_id):

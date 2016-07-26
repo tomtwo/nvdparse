@@ -12,6 +12,7 @@ class Vulnerability:
     self.date_published = entry.xpath('vuln:published-datetime/text()', namespaces=nsmap)
     self.summary = entry.xpath('vuln:summary/text()', namespaces=nsmap)[0]
     self.products = []
+    self.dependencies = []
     self.contains_filtered_product = False
 
     products = entry.xpath('vuln:vulnerable-software-list/vuln:product', namespaces=nsmap)
@@ -28,6 +29,28 @@ class Vulnerability:
           self.products.append(pr)
         else:
           del pr
+
+    # Need to scrape dependencies
+    if self.contains_filtered_product:
+      # Get list of products from vulnerable configuration section instead of vulnerable software list
+      # This list includes dependencies, and not just the vulnerable software itself
+      config_products = entry.xpath('vuln:vulnerable-configuration//cpe-lang:fact-ref/@name', namespaces=nsmap)
+
+      # Iterate through all products to see which are not included in the vulnerable software list
+      for p in config_products:
+        pr = Product.fromString(p)
+
+        if not pr.existsIn(product_filter):
+          # Unknown dependency, we simply ignore
+          continue
+
+        for _p in self.products:
+          if pr == _p:
+            # Will break beyond the list append line below
+            break
+        else:
+          # Loop was not broken, thus the product is a dependency
+          self.dependencies.append(pr)
 
   def __str__(self):
     return "Vuln %s>>> %s" % (self.id, "contains queried product" if self.contains_filtered_product else "")
@@ -54,15 +77,37 @@ class Product:
     self.product = product
     self.version = version
 
+    # If it's "microsoft_windows*", we want to normalise all versions
+    if self.vendor == "microsoft" and self.product[:7] == "windows":
+      self.version = self.product[8:] + self.version # One character later, to omit _
+      self.product = "windows"
+
   def __str__(self):
     return "%i %s %s %s" % (self.id, self.vendor, self.product, self.version)
+
+  def __eq__(self, other):
+    if type(other) is type(self):
+        return self.type == other.type \
+           and self.vendor == other.vendor \
+           and self.product == other.product \
+           and self.version == other.version
+    else:
+      return False
 
   def isFlash(self):
     return self.vendor == "adobe" and self.product == "flash_player"
 
+  def getIndexIn(self, product_list):
+    for i in xrange(len(product_list)):
+      if self.equalTo(product_list[i]):
+        return i
+
+    # No match, return invalid index
+    return -1
+
   def existsIn(self, product_list):
     for product in product_list:
-      if self.vendor == product[0] and self.product == product[1]:
+      if self.equalTo(product):
         return True
 
     # Not in product list!
